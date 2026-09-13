@@ -22,11 +22,16 @@ the boundary described below.
 
 `Assets/Rigs/PlayerRig.cs` and `Assets/Rigs/MonsterRig.cs` are the *only*
 two files that are allowed to know about both sides — our game logic and the
-real Cainos controllers. They're full of `// TODO` comments because I don't
-have the Cainos source, only the vendor docs, which confirm field and event
-*names* but not their real C# types or signatures. Fixing those two files
-against the real `PixelCharacterController.cs` / `MonsterController.cs` is
-the one Unity-side job standing between this repo and a running slice.
+real Cainos controllers. `PlayerRig.cs` is now real — the character pack is
+imported, so it's wired against the actual `PixelCharacterController.cs` /
+`PixelCharacter.cs`, including the melee/cast attack gating and hit
+detection described below. `Assets/Rigs/SpellProjectileRig.cs` is the same
+boundary again, on the spell's projectile prefab rather than the wizard
+itself. `MonsterRig.cs` is still a stub full of `// TODO` comments written
+against the vendor docs (field/event *names* only, not real signatures) —
+fixing it against the real `MonsterController.cs` once the monster pack is
+imported is the one Unity-side job left standing between this repo and a
+running slice.
 
 ## Why the asmdef boundary works
 
@@ -74,13 +79,17 @@ Assets/
     UI/                          HeartsDisplay, KeyBeltDisplay, MemoryLog
   _Game.Editor/                  WhereAreMyKeys.Editor.asmdef — FlavourCsvImporter (Where Are My Keys ▸ Import Flavour Text From CSV...)
   _Game.Tests/                   WhereAreMyKeys.Tests.asmdef — EditMode tests, no scene required
-  Rigs/                          NO asmdef, deliberately. PlayerRig.cs, MonsterRig.cs — the Cainos adapter boundary
-                                  (stubs, pending the character/monster packs). ChestRig.cs — same boundary, but
-                                  live: the environment pack is already imported, so it wires our Chest.OnOpened
-                                  straight to the real Cainos Chest.Open(). WhereAreMyKeys.inputactions — our own
-                                  Cast/Interact actions; assign this (or the character pack's own action asset,
-                                  if it turns out to already have a Cast-equivalent) to PlayerInput, since the
-                                  project's default InputSystem_Actions template has no Cast action.
+  Rigs/                          NO asmdef, deliberately. The Cainos adapter boundary:
+                                  PlayerRig.cs — live, wired to the real PixelCharacterController/PixelCharacter.
+                                  Gates the Cast attack action on SpellCaster's cooldown, does melee hit detection
+                                  off On Attack Hit (which names no target of its own), keeps controller.IsDead in
+                                  sync with our Health. ChestRig.cs — live, wires Chest.OnOpened to the real Cainos
+                                  Chest.Open(). SpellProjectileRig.cs — live, lives on the spell projectile prefab
+                                  (a duplicate of a Cainos "PF Projectile - Magic Missile" prefab) rather than the
+                                  wizard; bridges its onHit event to our Health/Candle. MonsterRig.cs — still a
+                                  stub, pending the monster pack. WhereAreMyKeys.inputactions — our own Cast/Interact
+                                  actions, assigned to the wizard's PlayerInput, since the project's default
+                                  InputSystem_Actions template has no Cast action.
 docs/                            GDD, delivery plan, and the vendor-doc notes from earlier planning
 ```
 

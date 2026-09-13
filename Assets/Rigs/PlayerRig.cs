@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Cainos.CustomizablePixelCharacter;
 using WhereAreMyKeys.Combat;
 using WhereAreMyKeys.Interaction;
 
@@ -7,28 +8,39 @@ namespace WhereAreMyKeys.Rigs
 {
     /// <summary>
     /// The one file allowed to know both the Cainos character controller
-    /// AND our game logic. Everything here is a guess against the vendor
-    /// DOCS (field/event *names*, not real C# signatures) — fix the
-    /// <c>// TODO</c>s against the real <c>PixelCharacterController.cs</c>
-    /// once the character pack is imported, and nowhere else in the
-    /// project needs to change. See README for the asmdef trick that
-    /// makes this the only file that has to.
+    /// AND our game logic. See README for the asmdef trick that makes this
+    /// the only file that has to.
     ///
     /// ASSUMPTIONS: Physics2D, New Input System with Cast/Interact actions
-    /// on a PlayerInput component — see README.
+    /// on a PlayerInput component (WhereAreMyKeys.inputactions) — see README.
+    ///
+    /// Movement/jump/dodge/melee stay driven by Cainos's own
+    /// <see cref="PixelCharacterInputMouseAndKeyboard"/> — this file only
+    /// takes over the primary attack ("Attack Action", set to Cast in the
+    /// Inspector), so it can gate it on <see cref="SpellCaster"/>'s cooldown
+    /// instead of firing on every held click. Because that input script
+    /// also feeds <c>inputAttack</c> every single frame, its own Attack Key
+    /// must be set to None in the Inspector so it always feeds false — this
+    /// file then pulses <c>inputAttack</c> true for exactly one frame in
+    /// <see cref="LateUpdate"/> (guaranteed to run after that script's
+    /// Update) whenever a cast is accepted.
     /// </summary>
     public class PlayerRig : MonoBehaviour
     {
-        [Header("Cainos references — fix after import")]
-        // TODO: replace with the real controller type, e.g.
-        //   [SerializeField] private PixelCharacterController controller;
-        [SerializeField] private MonoBehaviour controllerPlaceholder;
+        [Header("Cainos references")]
+        [SerializeField] private PixelCharacterController controller;
+        [SerializeField] private PixelCharacter character;
 
         [Header("Our game logic")]
         [SerializeField] private SpellCaster spellCaster;
         [SerializeField] private Health health;
         [SerializeField] private PlayerInteractor interactor;
         [SerializeField] private PlayerInput playerInput;
+
+        [Header("Melee hit detection — On Attack Hit names no target of its own")]
+        [SerializeField] private LayerMask meleeHitMask = ~0;
+        [SerializeField] private float meleeHitRadius = 0.6f;
+        [SerializeField] private int meleeDamage = 1;
 
         [Header("Presentation")]
         [SerializeField] private Renderer staffCrystal;
@@ -37,14 +49,11 @@ namespace WhereAreMyKeys.Rigs
 
         private InputAction _castAction;
         private InputAction _interactAction;
+        private bool _pulseAttackThisFrame;
 
         private void Awake()
         {
             if (playerInput == null) return;
-            // TODO: verify these action names match the Input Actions
-            // asset. The character pack's own Cast/Melee actions may
-            // already be wired for you — if so, this can read those
-            // directly instead of owning separate ones.
             _castAction = playerInput.actions.FindAction("Cast");
             _interactAction = playerInput.actions.FindAction("Interact");
         }
@@ -58,6 +67,7 @@ namespace WhereAreMyKeys.Rigs
                 spellCaster.OnCastPerformed += HandleSpellCastPerformed;
                 spellCaster.OnReadyAgain += HandleSpellReady;
             }
+            if (controller != null) controller.onAttackHit.AddListener(HandleMeleeHit);
         }
 
         private void OnDisable()
@@ -69,23 +79,34 @@ namespace WhereAreMyKeys.Rigs
                 spellCaster.OnCastPerformed -= HandleSpellCastPerformed;
                 spellCaster.OnReadyAgain -= HandleSpellReady;
             }
+            if (controller != null) controller.onAttackHit.RemoveListener(HandleMeleeHit);
         }
 
         private void OnCastPerformed(InputAction.CallbackContext ctx)
         {
             // The cooldown gate lives in our SpellCaster, not the Cainos
-            // controller. If it's not ready we simply never forward the
-            // press — the controller's melee action stays available as
-            // the natural fallback (GDD section 6).
-            spellCaster?.TryCast();
+            // controller. Melee stays available as the natural fallback
+            // (GDD section 6) because it's a separate key/action entirely
+            // and isn't touched here — only the primary attack is.
+            if (spellCaster != null && spellCaster.TryCast())
+                _pulseAttackThisFrame = true;
+        }
 
-            // TODO: once `controller` is real —
-            //   controller.ProjectileSpeed = spellCaster.Spell.projectileSpeed;
-            //   controller.ProjectilePrefab = <the underlying prefab
-            //     matching whatever type Cast expects>;
-            //   then either let the controller's own Cast action fire the
-            //   shot, or call whatever public method triggers Cast
-            //   directly if the action can't just be allowed through.
+        private void LateUpdate()
+        {
+            if (controller == null) return;
+
+            // Fires the Cast attack action for exactly the frame a cast was
+            // accepted — see the class doc for why this has to be
+            // LateUpdate rather than Update.
+            controller.inputAttack = _pulseAttackThisFrame;
+            _pulseAttackThisFrame = false;
+
+            // Keeps the controller's own death state in sync with ours.
+            // Idempotent on the controller's side (a same-value set is a
+            // no-op) and self-corrects on respawn without needing a
+            // separate "revived" event from Health.
+            if (health != null) controller.IsDead = health.IsDead;
         }
 
         private void OnInteractPerformed(InputAction.CallbackContext ctx) => interactor?.TryInteract();
@@ -93,7 +114,8 @@ namespace WhereAreMyKeys.Rigs
         private void HandleSpellCastPerformed()
         {
             if (staffCrystal != null) staffCrystal.material.color = crystalDimColor;
-            // TODO: play spellCaster.Spell.castSound
+            if (spellCaster?.Spell?.castSound != null)
+                AudioSource.PlayClipAtPoint(spellCaster.Spell.castSound, transform.position);
         }
 
         private void HandleSpellReady()
@@ -101,19 +123,31 @@ namespace WhereAreMyKeys.Rigs
             if (staffCrystal != null) staffCrystal.material.color = crystalReadyColor;
         }
 
-        // TODO: subscribe to the controller's documented `On Attack Hit`
-        // UnityEvent (melee damage) here, e.g.:
-        //
-        //   private void HandleAttackHit(Collider2D hitTarget)
-        //   {
-        //       hitTarget.GetComponentInParent<Health>()?.TakeDamage(meleeDamage);
-        //   }
-        //
-        // Wire it in the Inspector or in Awake once the event's real
-        // signature is known — the docs only confirm the event exists,
-        // not its parameters.
+        /// <summary>
+        /// The controller's On Attack Hit event fires on the animation's hit
+        /// frame but carries no target of its own, so we do our own overlap
+        /// check at the weapon's tip to find what it hit (GDD section 6: "we
+        /// do not write attack timing" — only this).
+        ///
+        /// Skips its own hierarchy explicitly rather than relying solely on
+        /// <see cref="meleeHitMask"/> — no Enemy layer exists to scope it to
+        /// yet (see docs/project-setup-checklist.md), and a default
+        /// "everything" mask would otherwise let the wizard hit itself.
+        /// </summary>
+        private void HandleMeleeHit()
+        {
+            if (character == null || character.Weapon == null) return;
 
-        // TODO: subscribe to the controller's footstep event
-        // (`On Footstep`, per the docs) to drive footstep audio.
+            Vector3 tip = character.Weapon.TipPosition;
+            var hits = Physics2D.OverlapCircleAll(tip, meleeHitRadius, meleeHitMask);
+            foreach (var hit in hits)
+            {
+                if (hit.transform.IsChildOf(transform)) continue;
+                hit.GetComponentInParent<Health>()?.TakeDamage(meleeDamage);
+            }
+        }
+
+        // TODO (E8, audio): subscribe to controller.onFootstep to drive
+        // footstep audio. Not part of getting the wizard into the scene.
     }
 }
