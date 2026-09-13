@@ -22,9 +22,21 @@ namespace WhereAreMyKeys.Rigs
     /// also feeds <c>inputAttack</c> every single frame, its own Attack Key
     /// must be set to None in the Inspector so it always feeds false — this
     /// file then pulses <c>inputAttack</c> true for exactly one frame in
-    /// <see cref="LateUpdate"/> (guaranteed to run after that script's
-    /// Update) whenever a cast is accepted.
+    /// <see cref="Update"/> whenever a cast is accepted.
+    ///
+    /// <see cref="PixelCharacterController"/> reads <c>inputAttack</c> from
+    /// its OWN Update (AttackUpdate), not LateUpdate, so the pulse has to
+    /// land inside the Update phase too, strictly after the Cainos input
+    /// script's Update (which stomps <c>inputAttack</c> back to false every
+    /// frame) and strictly before the controller's. Neither vendor script
+    /// declares an execution order, so that ordering isn't guaranteed by
+    /// default — hence the explicit <see cref="DefaultExecutionOrder"/>
+    /// here plus the matching override on
+    /// PixelCharacterInputMouseAndKeyboard's script asset (set to -100 in
+    /// its .meta). Get this wrong and Cast silently does nothing: the
+    /// pulse gets overwritten before the controller ever sees it.
     /// </summary>
+    [DefaultExecutionOrder(-50)]
     public class PlayerRig : MonoBehaviour
     {
         [Header("Cainos references")]
@@ -92,13 +104,14 @@ namespace WhereAreMyKeys.Rigs
                 _pulseAttackThisFrame = true;
         }
 
-        private void LateUpdate()
+        private void Update()
         {
             if (controller == null) return;
 
             // Fires the Cast attack action for exactly the frame a cast was
-            // accepted — see the class doc for why this has to be
-            // LateUpdate rather than Update.
+            // accepted — see the class doc for why this has to land here,
+            // ordered between the two vendor scripts, rather than in
+            // LateUpdate.
             controller.inputAttack = _pulseAttackThisFrame;
             _pulseAttackThisFrame = false;
 
