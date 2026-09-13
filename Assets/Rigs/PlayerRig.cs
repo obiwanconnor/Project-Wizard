@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using WhereAreMyKeys.Combat;
 using WhereAreMyKeys.Interaction;
+using WhereAreMyKeys.Movement;
 
 namespace WhereAreMyKeys.Rigs
 {
@@ -29,6 +30,10 @@ namespace WhereAreMyKeys.Rigs
         [SerializeField] private Health health;
         [SerializeField] private PlayerInteractor interactor;
         [SerializeField] private PlayerInput playerInput;
+        // TODO: grey-box stand-in for the Cainos controller's own
+        // movement (see docs/DELIVERY-PLAN.md M1) — once `controller` is
+        // real, drop this and feed the Move action into it instead.
+        [SerializeField] private PlayerMovement movement;
 
         [Header("Presentation")]
         [SerializeField] private Renderer staffCrystal;
@@ -37,6 +42,7 @@ namespace WhereAreMyKeys.Rigs
 
         private InputAction _castAction;
         private InputAction _interactAction;
+        private InputAction _moveAction;
 
         private void Awake()
         {
@@ -47,6 +53,18 @@ namespace WhereAreMyKeys.Rigs
             // directly instead of owning separate ones.
             _castAction = playerInput.actions.FindAction("Cast");
             _interactAction = playerInput.actions.FindAction("Interact");
+            // "Move" ships on the default map already bound to
+            // WASD/arrow keys and the gamepad left stick — see
+            // InputSystem_Actions.inputactions.
+            _moveAction = playerInput.actions.FindAction("Move");
+        }
+
+        private void Update()
+        {
+            // Move is a continuously-valued Vector2 action (not a
+            // one-shot button), so it's polled every frame rather than
+            // driven off performed/canceled.
+            if (_moveAction != null) movement?.SetMoveInput(_moveAction.ReadValue<Vector2>());
         }
 
         private void OnEnable()

@@ -69,6 +69,7 @@ Assets/
     Combat/                      Health, SpellCaster (+ pure SpellCooldownState), Projectile
     AI/                          MonsterAI (+ pure MonsterStateMachine): Idle → Patrol → Chase → Attack → Dead
     GameState/                   KeyRing, CheckpointManager, GameFlowController
+    Movement/                    PlayerMovement (+ pure PlayerMoveState) — grey-box block movement
     UI/                          HeartsDisplay, KeyBeltDisplay, MemoryLog
   _Game.Editor/                  WhereAreMyKeys.Editor.asmdef — FlavourCsvImporter (Where Are My Keys ▸ Import Flavour Text From CSV...)
   _Game.Tests/                   WhereAreMyKeys.Tests.asmdef — EditMode tests, no scene required
@@ -97,6 +98,14 @@ docs/                            GDD, delivery plan, and the vendor-doc notes fr
   `MonsterIntent` (move direction, wants-attack, facing) every frame;
   `MonsterRig` is the only thing that reads it and pushes it into the real
   controller fields.
+- **`PlayerMovement` is a grey-box stand-in, not the real controller.**
+  It moves a block from a plain Vector2 (`SetMoveInput`) with no idea
+  where that vector came from. `PlayerRig` polls the Input System's
+  `Move` action (already bound to arrow keys/WASD and the gamepad left
+  stick in `InputSystem_Actions.inputactions`) every frame and forwards
+  it — the same "our logic doesn't know about input bindings" split as
+  `PlayerInteractor`/`SpellCaster`. Delete it once the Cainos controller
+  is wired in and drives its own movement.
 
 ## Finishing the integration
 
@@ -123,7 +132,8 @@ docs/                            GDD, delivery plan, and the vendor-doc notes fr
 ## Tests
 
 `Assets/_Game.Tests/` covers the pure logic: spell cooldown gating, key
-counting, and the monster state machine's transitions (notice radius, attack
-range, the "dead overrides everything" rule). None of it needs a scene, a
-prefab, or the Cainos packs — that's deliberate, so these can be green from
-the very first commit.
+counting, the monster state machine's transitions (notice radius, attack
+range, the "dead overrides everything" rule), and the block-movement math
+(arrow-key diagonals clamped to unit length, gamepad-stick magnitude scaling
+speed proportionally). None of it needs a scene, a prefab, or the Cainos
+packs — that's deliberate, so these can be green from the very first commit.
