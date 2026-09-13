@@ -44,6 +44,7 @@
 
 # Visual Studio cache directory
 .vs/
+.vsconfig
 
 # Gradle cache directory
 .gradle/
@@ -55,6 +56,12 @@ ExportedObj/
 *.unityproj
 *.sln
 *.slnx
+
+# Never check in .meta-less imports of the Cainos packs themselves
+/Assets/CainosDungeon*/
+/Assets/CainosCharacter*/
+/Assets/CainosMonster*/
+
 *.suo
 *.tmp
 *.user
@@ -112,3 +119,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# OS
+.DS_Store
+Thumbs.db
