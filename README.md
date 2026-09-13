@@ -1,11 +1,13 @@
 # Where Are My Keys?! — game scripts
 
 Vertical-slice scripts for *Where Are My Keys?!*, the family dungeon
-platformer. This repo is **not** a full Unity project — there's no
-`ProjectSettings/` or `Packages/manifest.json` here, because that project
-doesn't exist yet (see `docs/project-setup-checklist.md`, epic E0). What's
-here is the `Assets/` content meant to be dropped into that project once
-it's created and the three Cainos packs are imported.
+platformer. The Unity project now exists (`ProjectSettings/`,
+`Packages/manifest.json`) and the **Pixel Art Platformer – Dungeon**
+environment pack is imported under `Assets/Cainos/`. The **Customizable
+Pixel Character** and **Pixel Art Monster – Dungeon** packs are not yet
+imported — see `docs/project-setup-checklist.md` for the remaining steps.
+The `Assets/_Game/` content below is meant to keep working unchanged as the
+rest of the packs land.
 
 See `docs/GDD.md` for the design this implements and `docs/DELIVERY-PLAN.md`
 for how it maps onto epics/stories.
@@ -72,7 +74,13 @@ Assets/
     UI/                          HeartsDisplay, KeyBeltDisplay, MemoryLog
   _Game.Editor/                  WhereAreMyKeys.Editor.asmdef — FlavourCsvImporter (Where Are My Keys ▸ Import Flavour Text From CSV...)
   _Game.Tests/                   WhereAreMyKeys.Tests.asmdef — EditMode tests, no scene required
-  Rigs/                          NO asmdef, deliberately. PlayerRig.cs, MonsterRig.cs — the Cainos adapter boundary.
+  Rigs/                          NO asmdef, deliberately. PlayerRig.cs, MonsterRig.cs — the Cainos adapter boundary
+                                  (stubs, pending the character/monster packs). ChestRig.cs — same boundary, but
+                                  live: the environment pack is already imported, so it wires our Chest.OnOpened
+                                  straight to the real Cainos Chest.Open(). WhereAreMyKeys.inputactions — our own
+                                  Cast/Interact actions; assign this (or the character pack's own action asset,
+                                  if it turns out to already have a Cast-equivalent) to PlayerInput, since the
+                                  project's default InputSystem_Actions template has no Cast action.
 docs/                            GDD, delivery plan, and the vendor-doc notes from earlier planning
 ```
 

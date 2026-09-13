@@ -27,6 +27,14 @@ namespace WhereAreMyKeys.Interaction
         [Header("Presentation")]
         [SerializeField] private Animator animator;
 
+        /// <summary>
+        /// Fired when a real (non-Mimic) chest opens. <see cref="Rigs.ChestRig"/>
+        /// listens for this to drive the sibling Cainos Chest component's
+        /// visuals — kept as an event rather than a direct reference so this
+        /// assembly still can't see Cainos types (see WhereAreMyKeys.asmdef).
+        /// </summary>
+        public event System.Action OnOpened;
+
         protected override void OnInteract(GameObject interactor)
         {
             if (isMimic)
@@ -36,6 +44,7 @@ namespace WhereAreMyKeys.Interaction
             }
 
             animator?.SetTrigger("Open");
+            OnOpened?.Invoke();
 
             if (flavourTable != null)
                 MemoryLog.Instance?.ShowText(flavourTable.GetRandomLine());
