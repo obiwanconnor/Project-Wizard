@@ -66,7 +66,7 @@ Assets/
   _Game/                         WhereAreMyKeys.asmdef — pure game logic
     Interaction/                 Interactable base + Candle, Chest, Sign, HeartPickup, BigDoor
     Data/                        ScriptableObjects: FlavourTable, CandleMemory, SpellDefinition, EnemyBehaviourProfile
-    Combat/                      Health, SpellCaster (+ pure SpellCooldownState), Projectile
+    Combat/                      Health (+ pure HealthState), SpellCaster (+ pure SpellCooldownState), Projectile
     AI/                          MonsterAI (+ pure MonsterStateMachine): Idle → Patrol → Chase → Attack → Dead
     GameState/                   KeyRing, CheckpointManager, GameFlowController
     UI/                          HeartsDisplay, KeyBeltDisplay, MemoryLog
@@ -79,11 +79,14 @@ docs/                            GDD, delivery plan, and the vendor-doc notes fr
 ## Design choices worth knowing before you extend this
 
 - **Pure logic is split from `MonoBehaviour`s wherever it mattered for
-  testing.** `SpellCooldownState`, `KeyRingState`, and `MonsterStateMachine`
-  are plain C# classes with no Unity lifecycle — the `MonoBehaviour`
-  wrappers (`SpellCaster`, `KeyRing`, `MonsterAI`) just tick them and wire
-  Unity-side concerns (events, Inspector fields). That's what makes the
-  EditMode tests run without a scene.
+  testing.** `SpellCooldownState`, `KeyRingState`, `MonsterStateMachine`,
+  and `HealthState` are plain C# classes with no Unity lifecycle — the
+  `MonoBehaviour` wrappers (`SpellCaster`, `KeyRing`, `MonsterAI`,
+  `Health`) just tick them and wire Unity-side concerns (events, Inspector
+  fields). That's what makes the EditMode tests run without a scene.
+  `HealthState.TakeDamage`/`Heal` return whether the change was applied,
+  not how much landed — `Health` still fires `OnDamaged`/`OnHealed` with
+  the requested amount, matching what callers already expect.
 - **`Interactable` doesn't do its own trigger detection.**
   `PlayerInteractor` owns a single overlap check, tracks the nearest
   interactable, and shows one reused `InteractionPromptView` — rather than
@@ -123,7 +126,8 @@ docs/                            GDD, delivery plan, and the vendor-doc notes fr
 ## Tests
 
 `Assets/_Game.Tests/` covers the pure logic: spell cooldown gating, key
-counting, and the monster state machine's transitions (notice radius, attack
-range, the "dead overrides everything" rule). None of it needs a scene, a
-prefab, or the Cainos packs — that's deliberate, so these can be green from
-the very first commit.
+counting, the monster state machine's transitions (notice radius, attack
+range, the "dead overrides everything" rule), and health (damage/heal
+clamping, the invulnerability window, death blocking further
+damage/healing). None of it needs a scene, a prefab, or the Cainos packs —
+that's deliberate, so these can be green from the very first commit.
